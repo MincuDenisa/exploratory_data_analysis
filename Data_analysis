@@ -1,0 +1,235 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import numpy as np
+
+#I. Prezentarea cantitativa
+
+
+# Încarcă fișierul CSV specificând separatorul și separatorul zecimal
+file_path = 'C:/Users/mincu/OneDrive/Desktop/proiect_seed/wines_SPA.csv' 
+data = pd.read_csv(file_path, sep=';', decimal=',')
+
+# Analiza inițială a datelor
+data_overview = {
+    "nr_rows": data.shape[0],
+    "nr_columns": data.shape[1],
+    "columns": data.columns.tolist(),
+    "valori_lipsa_coloana": data.isnull().sum(),
+    "proportie_lipsa_coloana": data.isnull().mean()
+}
+
+# Calcularea numărului de linii cu cel puțin o valoare lipsă
+rows_lipsa = data.isnull().any(axis=1).sum()
+proportie_rows_lipsa = rows_lipsa / data.shape[0]
+
+
+date_lipsa = {
+    "rows_lipsa": rows_lipsa,
+    "proportie_rows_lipsa": proportie_rows_lipsa
+}
+
+print("Prezentarea cantitativă a datelor:")
+print(f"Număr de linii: {data_overview['nr_rows']}")
+print(f"Număr de coloane: {data_overview['nr_columns']}")
+print(f"Coloane: {data_overview['columns']}")
+print("\nDate lipsă pe coloane:")
+print(data_overview["valori_lipsa_coloana"])
+print("\nProporția datelor lipsă pe coloane:")
+print(data_overview["proportie_lipsa_coloana"])
+print("\nLinii cu cel puțin o valoare lipsă:", date_lipsa["rows_lipsa"])
+print("Proporția liniilor incomplete:", date_lipsa["proportie_rows_lipsa"])
+
+# Completarea valorilor lipsă cu metoda backfill (bfill)
+data_filled = data.fillna(method='bfill')
+
+#II. Prezentarea calitativa 
+
+#1. Tipurile atributelor
+print(data.dtypes)
+
+#2. Distributia valorilor
+
+#Distribuția tipurilor de vin
+sns.countplot(data=data, x='type')
+plt.title('Distribuția tipurilor de vin')
+plt.show()
+
+#Distributia preturilor
+data['price'].hist(bins=30)
+plt.title('Distribuția prețurilor')
+plt.xlabel('Preț')
+plt.ylabel('Frecvență')
+plt.show()
+
+# Numarul de aparitii dupa regiuni
+plt.figure(figsize=(12, 6))
+region_counts = data['region'].value_counts()
+sns.barplot(x=region_counts.index, y=region_counts.values, palette='viridis')
+plt.xticks(rotation=45)
+plt.title('Numarul de aparitii dupa regiuni')
+plt.xlabel('Region')
+plt.ylabel('Număr de apariții')
+plt.show()
+
+# Top 20 de crame
+plt.figure(figsize=(12, 6))
+winery_counts = data['winery'].value_counts().head(20)  # Top 20 crame
+sns.barplot(x=winery_counts.index, y=winery_counts.values, palette='coolwarm')
+plt.xticks(rotation=45)
+plt.title('Top 20 de crame')
+plt.xlabel('Winery')
+plt.ylabel('Număr de apariții')
+plt.show()
+
+# Bogatia vinului
+plt.figure(figsize=(8, 5))
+body_counts = data['body'].value_counts()
+sns.barplot(x=body_counts.index, y=body_counts.values, palette='Set2')
+plt.title('Bogatia vinului')
+plt.xlabel('Body')
+plt.ylabel('Număr de apariții')
+plt.show()
+
+# Rating
+plt.figure(figsize=(8, 5))
+sns.histplot(data['rating'], bins=20, kde=True, color='blue', alpha=0.7)
+plt.title('Distribuția valorilor pentru rating')
+plt.xlabel('Rating')
+plt.ylabel('Număr de apariții')
+plt.show()
+
+# Numarul aparitiilor pe an
+plt.figure(figsize=(10, 5))
+sns.histplot(data['year'], bins=20, kde=False, color='green', alpha=0.7)
+plt.title('Numarul aparitiilor pe an')
+plt.xlabel('Year')
+plt.ylabel('Număr de apariții')
+plt.show()
+
+# Top 20 vinuri
+plt.figure(figsize=(12, 6))
+wine_counts = data['wine'].value_counts().head(20)
+sns.barplot(x=wine_counts.index, y=wine_counts.values, palette='mako')
+plt.xticks(rotation=45)
+plt.title('Top 20 vinuri')
+plt.xlabel('Wine')
+plt.ylabel('Număr de apariții')
+plt.show()
+
+#statistici
+print(data.describe())
+
+# Detectarea outlierilor cu IQR pentru 'price'
+Q1 = data['price'].quantile(0.25)
+Q3 = data['price'].quantile(0.75)
+IQR = Q3 - Q1
+
+# Valori extreme în afara intervalului (1.5 * IQR)
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+outliers = data[(data['price'] < lower_bound) | (data['price'] > upper_bound)]
+print(f"Outliers pentru 'price':\n{outliers}")
+
+# Prețuri negative
+invalid_prices = data[data['price'] < 0]
+print(f"Prețuri negative:\n{invalid_prices}")
+
+# Ani neconformi
+invalid_years = (data['year'] > 2024)
+print(f"Ani neconformi:\n{invalid_years}")
+
+#III. MAtricea de corelatie
+# Selectăm coloanele numerice
+coloane_numerice = data_filled.select_dtypes(include=['int64', 'float64'])
+
+# Verificăm dacă sunt variabile numerice
+print("Coloane numerice:\n", coloane_numerice.columns)
+
+# Calculăm matricea de corelație Pearson
+pearson_corr = coloane_numerice.corr(method='pearson')
+
+# Afișăm matricea de corelație
+print("Matricea de corelație Pearson:\n", pearson_corr)
+plt.figure(figsize=(10, 8))
+sns.heatmap(pearson_corr, annot=True, cmap='coolwarm', fmt='.2f', cbar=True)
+plt.title('Matricea de corelație Pearson pentru variabile numerice')
+plt.show()
+
+# Identificarea coloanelor categoriale (de tip object)
+categorical_columns = data_filled.select_dtypes(include=['object'])
+
+# #* Definirea OneHotEncoder-ului pentru a codifica coloanele categoriale
+# encoder = OneHotEncoder(sparse_output=False, drop='first')  # drop='first' pentru a evita collinearitatea
+
+# # Aplicăm encoder-ul doar pe coloanele categoriale
+# encoded_features = encoder.fit_transform(data[categorical_columns])
+
+# encoded_data = pd.DataFrame(encoded_features, columns=encoder.get_feature_names_out(categorical_columns))
+
+# # Eliminăm coloanele categoriale originale și concatenăm coloanele codificate
+# data_transformed = pd.concat([data_filled.drop(columns=categorical_columns), encoded_data], axis=1)
+# print("\nTabelul transformat:")
+# print(data_transformed.head())
+
+# Copie a datelor pentru a codifica variabilele categoriale
+categorical_data = data_filled.select_dtypes(include=['object']).copy()
+
+# Codificare folosind LabelEncoder
+for column in categorical_data.columns:
+    le = LabelEncoder()
+    categorical_data[column] = le.fit_transform(categorical_data[column])
+
+# Adăugăm înapoi variabilele codificate în DataFrame-ul original
+encoded_df = data_filled.copy()
+for column in categorical_data.columns:
+    encoded_df[column] = categorical_data[column]
+
+    # Calculăm matricea de corelație Spearman
+spearman_corr = encoded_df.corr(method='spearman')
+
+# Afișăm matricea
+print("Matricea de corelație Spearman:\n", spearman_corr)
+
+# Reprezentare grafică a matricei Spearman
+plt.figure(figsize=(10, 8))
+sns.heatmap(spearman_corr, annot=True, cmap='viridis', fmt='.2f')
+plt.title('Matricea de corelație Spearman pentru variabile categoriale')
+plt.show()
+
+#PCA
+
+# Standardizare (datele sunt scalate pentru a avea media 0 și deviația standard 1)
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(coloane_numerice)
+
+# Aplicare PCA
+pca = PCA()
+pca_data = pca.fit_transform(scaled_data)
+
+# Variatia explicată de fiecare componentă principală
+variatie_explicata = pca.explained_variance_ratio_
+print("Variatie explicată de fiecare componentă principală:\n",variatie_explicata)
+
+
+# Calculul variației cumulate
+cumulative_variance = np.cumsum(variatie_explicata)
+
+# Găsim numărul de componente principale pentru 90% din variație
+n_components_90 = np.argmax(cumulative_variance >= 0.90) + 1
+print(f"Numărul de componente principale care explică cel puțin 90% din variația totală: {n_components_90}")
+
+# Grafic pentru variatie explicată și variatie cumulată
+plt.figure(figsize=(10, 6))
+plt.bar(range(1, len(variatie_explicata) + 1), variatie_explicata, alpha=0.6, label='Variatie explicată individual')
+plt.plot(range(1, len(cumulative_variance) + 1), cumulative_variance, marker='o', color='r', label='Variatie cumulată')
+plt.axhline(y=0.90, color='g', linestyle='--', label='90% variație explicată')
+plt.title('Variatie explicată și cumulată pentru PCA')
+plt.xlabel('Componenta principală')
+plt.ylabel('Proporția de variatie explicată')
+plt.legend()
+plt.grid()
+plt.show()
